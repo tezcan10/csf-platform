@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(az *)",
+      "Bash(terraform *)",
+      "Bash(kubectl *)",
+      "Bash(docker *)",
+      "Bash(python *)",
+      "Bash(python3 *)",
+      "Bash(bash *)",
+      "Bash(git *)",
+      "Bash(curl *)",
+      "Bash(export *)",
+      "Bash(pip *)",
+      "Bash(pip3 *)",
+      "Bash(kill *)",
+      "Bash(chmod *)",
+      "Bash(wc *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(echo *)",
+      "Bash(jq *)"
+    ]
+  }
+}

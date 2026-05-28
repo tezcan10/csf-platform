@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CSF Pipeline Dashboard</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: ui-monospace, "Cascadia Code", "SF Mono", monospace;
+       background: #0f172a; color: #cbd5e1; min-height: 100vh; font-size: 13px; }
+
+header { display: flex; justify-content: space-between; align-items: center;
+         padding: 14px 24px; background: #1e293b; border-bottom: 1px solid #334155; }
+header h1 { font-size: 15px; font-weight: 600; color: #f1f5f9; letter-spacing: .5px; }
+.hright { display: flex; align-items: center; gap: 14px; }
+.refresh { color: #475569; font-size: 12px; }
+
+.pipeline { display: flex; align-items: flex-start; gap: 0; padding: 28px 24px; }
+.arrow { align-self: flex-start; margin-top: 48px; color: #334155; font-size: 22px;
+         padding: 0 10px; flex-shrink: 0; user-select: none; }
+
+.card { flex: 1; min-width: 0; background: #1e293b; border: 1px solid #334155; border-radius: 8px; }
+.card-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+             border-bottom: 1px solid #334155; }
+.agent-num  { font-size: 10px; font-weight: 700; color: #475569; letter-spacing: 1px; }
+.agent-name { flex: 1; font-size: 13px; font-weight: 600; color: #f1f5f9; }
+.card-body  { padding: 14px 16px; min-height: 160px; }
+.card-foot  { padding: 7px 16px; border-top: 1px solid #1e293b;
+              font-size: 11px; color: #475569; min-height: 26px; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px;
+         font-size: 10px; font-weight: 700; letter-spacing: .5px; color: #fff; }
+
+.row { display: flex; justify-content: space-between; align-items: baseline;
+       padding: 5px 0; border-bottom: 1px solid #1e293b; }
+.row:last-child { border-bottom: none; }
+.lbl { color: #64748b; font-size: 11px; white-space: nowrap; margin-right: 8px; }
+.val { color: #e2e8f0; font-size: 12px; text-align: right; word-break: break-all; }
+.ok   { color: #22c55e; }
+.warn { color: #f59e0b; }
+.fail { color: #ef4444; }
+.dim  { color: #475569; }
+.route-badge { background: #1d4ed8; padding: 1px 7px; border-radius: 3px;
+               font-size: 11px; color: #93c5fd; }
+
+.files { margin-top: 10px; padding-top: 10px; border-top: 1px solid #334155; }
+.files-label { font-size: 10px; color: #475569; letter-spacing: .5px; margin-bottom: 4px; }
+.file-item { font-size: 11px; color: #94a3b8; padding: 1px 0; }
+
+.findings { margin-top: 10px; padding-top: 10px; border-top: 1px solid #334155; }
+.findings-label { font-size: 10px; color: #475569; letter-spacing: .5px; margin-bottom: 4px; }
+.finding { padding: 4px 8px; margin-top: 3px; background: #0f172a;
+           border-left: 2px solid #f59e0b; border-radius: 2px;
+           font-size: 11px; color: #fcd34d; line-height: 1.5; }
+.no-findings { font-size: 11px; color: #22c55e; }
+.no-data { color: #475569; font-size: 12px; padding: 20px 0; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CSF Agent Pipeline</h1>
+  <div class="hright">
+    <span id="overall" class="badge" style="background:#334155">LOADING</span>
+    <span class="refresh">↺ <span id="countdown">10</span>s</span>
+  </div>
+</header>
+
+<div class="pipeline">
+
+  <!-- Agent 1 -->
+  <div class="card">
+    <div class="card-head">
+      <span class="agent-num">AGENT 1</span>
+      <span class="agent-name">Repo Watcher</span>
+      <span id="b1" class="badge" style="background:#334155">—</span>
+    </div>
+    <div class="card-body" id="body1"><p class="no-data">Not run yet</p></div>
+    <div class="card-foot" id="foot1"></div>
+  </div>
+
+  <div class="arrow">›</div>
+
+  <!-- Agent 2 -->
+  <div class="card">
+    <div class="card-head">
+      <span class="agent-num">AGENT 2</span>
+      <span class="agent-name">Terraform Runner</span>
+      <span id="b2" class="badge" style="background:#334155">—</span>
+    </div>
+    <div class="card-body" id="body2"><p class="no-data">Not run yet</p></div>
+    <div class="card-foot" id="foot2"></div>
+  </div>
+
+  <div class="arrow">›</div>
+
+  <!-- Agent 3 -->
+  <div class="card">
+    <div class="card-head">
+      <span class="agent-num">AGENT 3</span>
+      <span class="agent-name">Manifest Validator</span>
+      <span id="b3" class="badge" style="background:#334155">—</span>
+    </div>
+    <div class="card-body" id="body3"><p class="no-data">Not run yet</p></div>
+    <div class="card-foot" id="foot3"></div>
+  </div>
+
+  <div class="arrow">›</div>
+
+  <!-- Agent 4 -->
+  <div class="card">
+    <div class="card-head">
+      <span class="agent-num">AGENT 4</span>
+      <span class="agent-name">ArgoCD Monitor</span>
+      <span id="b4" class="badge" style="background:#334155">—</span>
+    </div>
+    <div class="card-body" id="body4"><p class="no-data">Not run yet</p></div>
+    <div class="card-foot" id="foot4"></div>
+  </div>
+
+</div>
+
+<script>
+const STATUS_COLOR = {
+  success:          '#16a34a',
+  failure:          '#dc2626',
+  change_detected:  '#2563eb',
+  no_change:        '#475569',
+};
+const STATUS_LABEL = {
+  success:          'SUCCESS',
+  failure:          'FAILURE',
+  change_detected:  'DETECTED',
+  no_change:        'NO CHANGE',
+};
+
+function setBadge(id, status) {
+  const el = document.getElementById(id);
+  el.textContent = STATUS_LABEL[status] || (status || '—').toUpperCase();
+  el.style.background = STATUS_COLOR[status] || '#334155';
+}
+
+function row(label, valueHtml) {
+  return `<div class="row"><span class="lbl">${label}</span><span class="val">${valueHtml}</span></div>`;
+}
+
+function check(ok) {
+  return ok ? '<span class="ok">✓</span>' : '<span class="fail">✗</span>';
+}
+
+function lastUpdated(data) {
+  const entry = data?.audit_log?.[0];
+  const t = entry?.output?.date || entry?.ts;
+  if (!t) return '';
+  try { return 'Updated ' + new Date(t).toLocaleTimeString(); } catch { return ''; }
+}
+
+// ── Agent 1 ──────────────────────────────────────────────────────────────────
+function renderAgent1(d) {
+  if (!d) return '<p class="no-data">Not run yet</p>';
+  if (d.status === 'no_change') {
+    return row('SHA', `<span class="dim">${(d.commit_sha || '').slice(0,8)}</span>`) +
+           row('Status', '<span class="dim">No new commits</span>');
+  }
+  const fileList = (d.changed_files || [])
+    .map(f => `<div class="file-item">${f}</div>`).join('');
+  return row('SHA',     `<span style="color:#94a3b8">${(d.commit_sha||'').slice(0,8)}</span>`) +
+         row('Message', d.commit_message || '—') +
+         row('Route',   `<span class="route-badge">${d.route_to || '—'}</span>`) +
+         `<div class="files">
+            <div class="files-label">CHANGED FILES</div>
+            ${fileList || '<span class="dim">—</span>'}
+          </div>`;
+}
+
+// ── Agent 2 ──────────────────────────────────────────────────────────────────
+function renderAgent2(d) {
+  if (!d) return '<p class="no-data">Not run yet</p>';
+  const nodesOk = d.nodes_ready > 0;
+  return row('AKS',    d.aks_name    || '—') +
+         row('ACR',    d.acr_server  || '—') +
+         row('RG',     d.resource_group || '—') +
+         row('Nodes',  `<span class="${nodesOk ? 'ok' : 'fail'}">${d.nodes_ready ?? '?'} ready</span>`) +
+         row('Result', d.message || '—');
+}
+
+// ── Agent 3 ──────────────────────────────────────────────────────────────────
+function renderAgent3(d) {
+  if (!d) return '<p class="no-data">Not run yet</p>';
+  const findings = d.findings || [];
+  const findingHtml = findings.length
+    ? findings.map(f => `<div class="finding">${f}</div>`).join('')
+    : '<div class="no-findings">✓ No findings</div>';
+  const repVal = d.expected_replicas != null
+    ? `<span class="dim">${d.expected_replicas} expected</span>`
+    : '<span class="dim">—</span>';
+  return row('Dry-run',  check(d.status === 'success')) +
+         row('Replicas', repVal) +
+         row('Result',   d.message || '—') +
+         `<div class="findings">
+            <div class="findings-label">FINDINGS</div>
+            ${findingHtml}
+          </div>`;
+}
+
+// ── Agent 4 ──────────────────────────────────────────────────────────────────
+function renderAgent4(d) {
+  if (!d) return '<p class="no-data">Not run yet</p>';
+  const expected = d.expected_replicas ?? d.total_pods;
+  const podsOk = d.ready_pods > 0 && d.ready_pods === expected;
+  const podVal = `<span class="${podsOk ? 'ok' : 'fail'}">${d.ready_pods ?? '?'} / ${expected ?? '?'} ready</span>`;
+  const httpVal = d.health_check_ok === null || d.health_check_ok === undefined
+    ? '<span class="dim">—</span>'
+    : check(d.health_check_ok);
+  const rbVal = d.rollback_triggered
+    ? '<span class="fail">triggered</span>'
+    : '<span class="dim">none</span>';
+  return row('Sync',     `${check(d.sync_status === 'Synced')} ${d.sync_status || '—'}`) +
+         row('Health',   `${check(d.health_status === 'Healthy')} ${d.health_status || '—'}`) +
+         row('Pods',     podVal) +
+         row('HTTP',     httpVal) +
+         row('Rollback', rbVal);
+}
+
+// ── Overall status ────────────────────────────────────────────────────────────
+function overallStatus(a1, a2, a3, a4) {
+  if (a4?.status === 'success')              return ['HEALTHY',     '#16a34a'];
+  if (a4?.status === 'failure')              return ['FAILED',      '#dc2626'];
+  if (a2?.status === 'failure')              return ['INFRA FAIL',  '#dc2626'];
+  if (a3?.status === 'failure')              return ['INVALID',     '#dc2626'];
+  if (a3?.status === 'success' && !a4)       return ['IN PROGRESS', '#d97706'];
+  if (a2?.status === 'success' && !a3)       return ['IN PROGRESS', '#d97706'];
+  if (a1?.status === 'change_detected')      return ['IN PROGRESS', '#d97706'];
+  if (a1?.status === 'no_change')            return ['IDLE',        '#334155'];
+  return ['UNKNOWN', '#334155'];
+}
+
+// ── Fetch + render ────────────────────────────────────────────────────────────
+async function fetchJSON(path) {
+  try {
+    const r = await fetch(path + '?_=' + Date.now());
+    return r.ok ? r.json() : null;
+  } catch { return null; }
+}
+
+async function refresh() {
+  const [a1, a2, a3, a4] = await Promise.all([
+    fetchJSON('logs/agent1_last.json'),
+    fetchJSON('logs/agent2_last.json'),
+    fetchJSON('logs/agent3_last.json'),
+    fetchJSON('logs/agent4_last.json'),
+  ]);
+
+  document.getElementById('body1').innerHTML = renderAgent1(a1);
+  document.getElementById('body2').innerHTML = renderAgent2(a2);
+  document.getElementById('body3').innerHTML = renderAgent3(a3);
+  document.getElementById('body4').innerHTML = renderAgent4(a4);
+
+  setBadge('b1', a1?.status);
+  setBadge('b2', a2?.status);
+  setBadge('b3', a3?.status);
+  setBadge('b4', a4?.status);
+
+  document.getElementById('foot1').textContent = lastUpdated(a1);
+  document.getElementById('foot2').textContent = lastUpdated(a2);
+  document.getElementById('foot3').textContent = lastUpdated(a3);
+  document.getElementById('foot4').textContent = lastUpdated(a4);
+
+  const [label, color] = overallStatus(a1, a2, a3, a4);
+  const el = document.getElementById('overall');
+  el.textContent = label;
+  el.style.background = color;
+}
+
+// ── Countdown ─────────────────────────────────────────────────────────────────
+let secs = 0;
+setInterval(() => {
+  if (--secs <= 0) { secs = 10; refresh(); }
+  document.getElementById('countdown').textContent = secs;
+}, 1000);
+
+refresh();
+</script>
+</body>
+</html>

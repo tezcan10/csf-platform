@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Logs (runtime output, not source)
+agents/logs/
+
+# Terraform state & local files
+infrastructure/csf/.terraform/
+infrastructure/csf/*.tfstate
+infrastructure/csf/*.tfstate.backup
+infrastructure/csf/*.tfplan
+infrastructure/csf/.terraform.lock.hcl
+
+# csf-gitops is its own git repo — don't nest it
+infrastructure/csf/.git/
+
+# Build artefacts
+build/
+dist/
+
+# macOS
+.DS_Store
