@@ -22,5 +22,8 @@ infrastructure/csf/.git/
 build/
 dist/
 
+# Secrets — never commit real credentials
+k8s/secret.yml
+
 # macOS
 .DS_Store

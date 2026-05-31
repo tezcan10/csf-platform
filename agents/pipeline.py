@@ -20,7 +20,8 @@ import agent4_argocd_monitor       as a4
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s")
 log = logging.getLogger("pipeline")
 
-LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+LOG_DIR    = os.getenv("LOG_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs"))
+IN_CLUSTER = os.getenv("KUBERNETES_SERVICE_HOST") is not None   # true when running as a pod
 
 def get_app_url():
     """Return APP_URL env var if set, otherwise look up the LoadBalancer IP from kubectl."""
@@ -91,13 +92,16 @@ def main():
 
     # ── Agent 2 ───────────────────────────────
     if "agent2" in route:
-        log.info("▶  Agent 2 — Terraform runner")
-        r2 = run_agent2(r1)
-        log.info("   status=%s  nodes=%s", r2.get("status"), r2.get("nodes_ready", "?"))
-        if r2.get("status") != "success":
-            log.error("   Terraform FAILED — halting pipeline.")
-            sys.exit(1)
-        r1.update({k: r2[k] for k in ("acr_server","aks_name","resource_group") if k in r2})
+        if IN_CLUSTER:
+            log.warning("▶  Agent 2 skipped — running in-cluster; run Agent 2 manually from laptop to provision infrastructure.")
+        else:
+            log.info("▶  Agent 2 — Terraform runner")
+            r2 = run_agent2(r1)
+            log.info("   status=%s  nodes=%s", r2.get("status"), r2.get("nodes_ready", "?"))
+            if r2.get("status") != "success":
+                log.error("   Terraform FAILED — halting pipeline.")
+                sys.exit(1)
+            r1.update({k: r2[k] for k in ("acr_server","aks_name","resource_group") if k in r2})
 
     # ── Agent 3 ───────────────────────────────
     if "agent3" in route:

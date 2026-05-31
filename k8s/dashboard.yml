@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: csf-dashboard
+  namespace: csf-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: csf-dashboard
+  template:
+    metadata:
+      labels:
+        app: csf-dashboard
+    spec:
+      volumes:
+        - name: pipeline-data
+          persistentVolumeClaim:
+            claimName: pipeline-data
+        - name: dashboard-html
+          configMap:
+            name: dashboard-html
+      containers:
+        - name: dashboard
+          image: python:3.11-slim
+          command: ["python3", "-m", "http.server", "8080", "--directory", "/www"]
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: pipeline-data
+              mountPath: /www/logs          # logs/*.json served here
+            - name: dashboard-html
+              mountPath: /www               # dashboard.html served here
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: csf-dashboard
+  namespace: csf-platform
+spec:
+  selector:
+    app: csf-dashboard
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: LoadBalancer

@@ -13,8 +13,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s")
 log = logging.getLogger("agent1")
 
 MODEL      = "claude-opus-4-7"
-STATE_FILE = os.path.join(os.path.dirname(__file__), ".agent1_state")
-LOG_DIR    = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+LOG_DIR    = os.getenv("LOG_DIR",    os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs"))
+STATE_FILE = os.getenv("STATE_FILE", os.path.join(LOG_DIR, ".agent1_state"))
 GH_API     = "https://api.github.com"
 OWNER      = os.getenv("GITHUB_OWNER",  "tezcan10")
 REPO       = os.getenv("GITHUB_REPO",   "csf-gitops")
