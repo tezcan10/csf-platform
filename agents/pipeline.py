@@ -8,7 +8,7 @@ Usage:
     python agents/pipeline.py
 """
 
-import json, logging, os, sys
+import json, logging, os, subprocess, sys
 
 # Import agent modules directly so we call run() without subprocess overhead
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -21,7 +21,20 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s")
 log = logging.getLogger("pipeline")
 
 LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
-APP_URL = os.getenv("APP_URL", "https://20.82.73.181")
+
+def get_app_url():
+    """Return APP_URL env var if set, otherwise look up the LoadBalancer IP from kubectl."""
+    if os.getenv("APP_URL"):
+        return os.getenv("APP_URL")
+    try:
+        r = subprocess.run(
+            ["kubectl", "get", "svc", "csf-app-svc", "-n", "default",
+             "-o", "jsonpath={.status.loadBalancer.ingress[0].ip}"],
+            capture_output=True, text=True, timeout=10)
+        ip = r.stdout.strip()
+        return f"https://{ip}" if ip else "https://pending"
+    except Exception:
+        return "https://pending"
 
 def write_log(name, data):
     os.makedirs(LOG_DIR, exist_ok=True)
@@ -88,7 +101,7 @@ def main():
 
     # ── Agent 3 ───────────────────────────────
     if "agent3" in route:
-        r1["app_url"] = APP_URL   # inject so it flows through to Agent 4
+        r1["app_url"] = get_app_url()   # inject so it flows through to Agent 4
         log.info("▶  Agent 3 — manifest validator")
         r3 = run_agent3(r1)
         log.info("   status=%s  findings=%d", r3.get("status"), len(r3.get("findings", [])))

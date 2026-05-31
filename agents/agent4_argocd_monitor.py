@@ -34,7 +34,10 @@ def wait_for_deployment(app_name, expected_revision=None, expected_replicas=None
         sync_status   = s.get("sync",   {}).get("status", "Unknown")
         health_status = s.get("health", {}).get("status", "Unknown")
         revision      = s.get("sync",   {}).get("revision")
-        rev_ok = (not expected_revision) or (revision == expected_revision)
+        # Accept both full SHA and short SHA (prefix match in either direction)
+        rev_ok = (not expected_revision) or (revision == expected_revision) or \
+                 (revision or "").startswith(expected_revision or "") or \
+                 (expected_revision or "").startswith(revision or "")
         log.info("  argocd poll %d: %s/%s rev_ok=%s", i+1, sync_status, health_status, rev_ok)
         if sync_status == "Synced" and health_status == "Healthy" and rev_ok:
             break

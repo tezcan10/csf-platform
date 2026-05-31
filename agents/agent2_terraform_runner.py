@@ -44,6 +44,17 @@ def connect_kubectl(resource_group, cluster_name):
     node_count = r2["output"].count("\n")  # rough count from output lines
     return {"ok": r2["ok"], "output": r2["output"], "node_count": node_count}
 
+def ensure_app_image(registry="acrcsfdemo", image="csf-app", tag="v1"):
+    """Check if image exists in ACR; build and push via ACR Tasks if missing. Idempotent."""
+    check = _run(["az", "acr", "repository", "show", "--name", registry,
+                  "--image", f"{image}:{tag}"], timeout=30)
+    if check["ok"]:
+        return {"ok": True, "action": "skipped", "message": f"{image}:{tag} already exists in {registry}"}
+    # Build in Azure using ACR Tasks — no local Docker required
+    build = _run(["az", "acr", "build", "--registry", registry,
+                  "--image", f"{image}:{tag}", "--file", "Dockerfile", "."], timeout=600)
+    return {"ok": build["ok"], "action": "built_and_pushed", "output": build["output"][-1000:]}
+
 def start_argocd_portforward(local_port=8888):
     """Wait for argocd-server pod to be ready, then start port-forward. Retries for up to 3 min."""
     subprocess.run(["pkill", "-f", "port-forward.*argocd-server"], capture_output=True)
@@ -64,11 +75,12 @@ def start_argocd_portforward(local_port=8888):
     return {"ok": False, "url": f"https://localhost:{local_port}", "status_code": r["output"].strip()}
 
 DISPATCH = {
-    "run_setup_backend": lambda i: run_setup_backend(),
-    "terraform_init":    lambda i: terraform_init(i["directory"]),
-    "terraform_plan":    lambda i: terraform_plan(i["directory"]),
-    "terraform_apply":   lambda i: terraform_apply(i["directory"]),
+    "run_setup_backend":        lambda i: run_setup_backend(),
+    "terraform_init":           lambda i: terraform_init(i["directory"]),
+    "terraform_plan":           lambda i: terraform_plan(i["directory"]),
+    "terraform_apply":          lambda i: terraform_apply(i["directory"]),
     "connect_kubectl":          lambda i: connect_kubectl(i["resource_group"], i["cluster_name"]),
+    "ensure_app_image":         lambda i: ensure_app_image(i.get("registry","acrcsfdemo"), i.get("image","csf-app"), i.get("tag","v1")),
     "start_argocd_portforward": lambda i: start_argocd_portforward(i.get("local_port", 8888)),
 }
 
@@ -97,6 +109,15 @@ TOOLS = [
                       "properties": {"resource_group": {"type": "string"},
                                      "cluster_name":   {"type": "string"}},
                       "required": ["resource_group", "cluster_name"]}},
+    {"name": "ensure_app_image",
+     "description": "Check if csf-app:v1 exists in ACR; build and push via ACR Tasks if missing. Idempotent — safe to call every run.",
+     "input_schema": {"type": "object",
+                      "properties": {
+                          "registry": {"type": "string"},
+                          "image":    {"type": "string"},
+                          "tag":      {"type": "string"},
+                      },
+                      "required": []}},
     {"name": "start_argocd_portforward",
      "description": "Kill any existing argocd port-forward and start a fresh one on local_port (default 8888). Verifies with HTTP 200.",
      "input_schema": {"type": "object",
@@ -117,10 +138,12 @@ Steps (always in this order):
 4. APPLY    terraform_apply(directory="{TF_DIR}") — only after plan looks correct.
 5. CONNECT  connect_kubectl(resource_group="rg-csf-demo", cluster_name="aks-csf-demo").
             Verify nodes appear in the output.
-6. ARGOCD   start_argocd_portforward(local_port=8888).
+6. IMAGE    ensure_app_image() — checks ACR for csf-app:v1; builds and pushes if missing.
+            Idempotent — always call this; it skips the build if the image is already present.
+7. ARGOCD   start_argocd_portforward(local_port=8888).
             ArgoCD is for local access only — ok=false here is a WARNING, not a hard failure.
             Do NOT set status=failure if only the port-forward fails.
-7. REPORT   output JSON as your final message:
+8. REPORT   output JSON as your final message:
             {{"agent":"agent2","status":"success|failure",
               "acr_server":"acrcsfdemo.azurecr.io","aks_name":"aks-csf-demo",
               "resource_group":"rg-csf-demo","app_url":"https://pending",
