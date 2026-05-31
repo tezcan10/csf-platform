@@ -45,16 +45,23 @@ def connect_kubectl(resource_group, cluster_name):
     return {"ok": r2["ok"], "output": r2["output"], "node_count": node_count}
 
 def start_argocd_portforward(local_port=8888):
+    """Wait for argocd-server pod to be ready, then start port-forward. Retries for up to 3 min."""
     subprocess.run(["pkill", "-f", "port-forward.*argocd-server"], capture_output=True)
+    # Wait for argocd-server deployment to be available (up to 3 min on fresh cluster)
+    subprocess.run(["kubectl", "wait", "--for=condition=available", "deployment/argocd-server",
+                    "-n", "argocd", "--timeout=180s"], capture_output=True)
     subprocess.Popen(
         ["kubectl", "port-forward", "svc/argocd-server", "-n", "argocd",
          f"{local_port}:443", "--address", "127.0.0.1"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    time.sleep(2)
-    r = _run(["curl", "-sk", f"https://127.0.0.1:{local_port}", "-o", "/dev/null",
-              "-w", "%{http_code}"], timeout=10)
-    ok = r["output"].strip() == "200"
-    return {"ok": ok, "url": f"https://localhost:{local_port}", "status_code": r["output"].strip()}
+    # Retry curl a few times to let the tunnel stabilise
+    for i in range(6):
+        time.sleep(3)
+        r = _run(["curl", "-sk", f"https://127.0.0.1:{local_port}", "-o", "/dev/null",
+                  "-w", "%{http_code}"], timeout=10)
+        if r["output"].strip() == "200":
+            return {"ok": True, "url": f"https://localhost:{local_port}", "status_code": "200"}
+    return {"ok": False, "url": f"https://localhost:{local_port}", "status_code": r["output"].strip()}
 
 DISPATCH = {
     "run_setup_backend": lambda i: run_setup_backend(),
@@ -111,14 +118,17 @@ Steps (always in this order):
 5. CONNECT  connect_kubectl(resource_group="rg-csf-demo", cluster_name="aks-csf-demo").
             Verify nodes appear in the output.
 6. ARGOCD   start_argocd_portforward(local_port=8888).
-            Verify ok=true and status_code=200.
+            ArgoCD is for local access only — ok=false here is a WARNING, not a hard failure.
+            Do NOT set status=failure if only the port-forward fails.
 7. REPORT   output JSON as your final message:
             {{"agent":"agent2","status":"success|failure",
               "acr_server":"acrcsfdemo.azurecr.io","aks_name":"aks-csf-demo",
               "resource_group":"rg-csf-demo","app_url":"https://pending",
               "nodes_ready":N,"argocd_url":"https://localhost:8888","message":"one-line summary"}}
 
-Rules: if any step returns ok=false, retry once. If it fails again, set status=failure and stop."""
+Rules: if any step returns ok=false, retry once. If it fails again, set status=failure and stop.
+       Exception: start_argocd_portforward failure is a warning only — always set status=success
+       as long as steps 1-5 succeeded."""
 
 def run(ctx):
     client   = anthropic.Anthropic()

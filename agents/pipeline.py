@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s")
 log = logging.getLogger("pipeline")
 
 LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
-APP_URL = os.getenv("APP_URL", "https://98.64.184.178")
+APP_URL = os.getenv("APP_URL", "https://20.82.73.181")
 
 def write_log(name, data):
     os.makedirs(LOG_DIR, exist_ok=True)
