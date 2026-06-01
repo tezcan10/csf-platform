@@ -60,7 +60,27 @@ def run_agent2(ctx):
     write_log("agent2", result)
     return result
 
+def ensure_gitops_checkout():
+    """When running in-cluster, clone/pull csf-gitops and return the k8s dir path."""
+    if not IN_CLUSTER:
+        return "infrastructure/csf/k8s"  # locally, manifests are on disk
+    clone_dir = "/tmp/csf-gitops"
+    token = os.getenv("GITHUB_TOKEN", "")
+    repo_url = f"https://{token}@github.com/tezcan10/csf-gitops.git"
+    if os.path.isdir(os.path.join(clone_dir, ".git")):
+        r = subprocess.run(["git", "-C", clone_dir, "pull", "--ff-only"],
+                           capture_output=True, text=True)
+        log.info("git pull csf-gitops: %s", (r.stdout + r.stderr).strip()[:80])
+    else:
+        r = subprocess.run(["git", "clone", "--depth=1", repo_url, clone_dir],
+                           capture_output=True, text=True)
+        log.info("git clone csf-gitops: %s", (r.stdout + r.stderr).strip()[:80])
+        if r.returncode != 0:
+            log.error("git clone failed: %s", r.stderr.strip())
+    return os.path.join(clone_dir, "k8s")
+
 def run_agent3(ctx):
+    ctx["k8s_dir"] = ensure_gitops_checkout()
     result = a3.run(ctx)
     write_log("agent3", result)
     return result

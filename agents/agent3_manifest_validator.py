@@ -9,8 +9,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s")
 log = logging.getLogger("agent3")
 
 MODEL   = "claude-opus-4-7"
-K8S_DIR = "infrastructure/csf/k8s"
-LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+K8S_DIR = os.getenv("K8S_DIR", "infrastructure/csf/k8s")
+LOG_DIR = os.getenv("LOG_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs"))
 
 def list_manifests(directory):
     files = sorted(glob.glob(f"{directory}/**/*.yml",  recursive=True) +
@@ -59,7 +59,7 @@ TOOLS = [
 
 SYSTEM = """You are Agent 3 — Kubernetes Manifest Validator. One job: validate manifests are safe, then report.
 
-1. LIST    list_manifests(directory="infrastructure/csf/k8s").
+1. LIST    list_manifests using the k8s_dir value from the context (it is always provided).
 2. READ    read_manifest on each file. Flag: missing resource limits, image tag :latest, missing namespace.
            Extract spec.replicas from any Deployment manifest — include as expected_replicas in the report.
 3. DRY-RUN kubectl_dry_run on each file. ok=false is a hard failure → status=failure.
@@ -73,8 +73,11 @@ Findings are warnings only — don't block on best-practice issues alone. Defaul
 def run(ctx):
     client   = anthropic.Anthropic()
     audit    = []
+    k8s_dir  = ctx.get("k8s_dir", K8S_DIR)
     messages = [{"role": "user", "content":
-        f"Validate manifests for {ctx.get('app_name','csf-app')}.\nContext: {json.dumps(ctx)}\nBegin."}]
+        f"Validate manifests for {ctx.get('app_name','csf-app')}.\n"
+        f"k8s_dir (manifests location): {k8s_dir}\n"
+        f"Context: {json.dumps(ctx)}\nBegin."}]
 
     for _ in range(40):
         resp = client.messages.create(model=MODEL, max_tokens=4096,
