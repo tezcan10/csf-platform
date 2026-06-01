@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s")
 log = logging.getLogger("agent2")
 
 MODEL   = "claude-opus-4-7"
-TF_DIR  = "infrastructure/csf"
+TF_DIR  = "infrastructure"
 LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
 
 def _run(cmd, timeout=600):
