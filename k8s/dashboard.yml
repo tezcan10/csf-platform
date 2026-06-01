@@ -28,9 +28,10 @@ spec:
             - containerPort: 8080
           volumeMounts:
             - name: pipeline-data
-              mountPath: /www/logs          # logs/*.json served here
+              mountPath: /www               # PVC root → /www/logs/agent*.json
             - name: dashboard-html
-              mountPath: /www               # dashboard.html served here
+              mountPath: /www/dashboard.html
+              subPath: dashboard.html       # mount single file, doesn't override /www
 ---
 apiVersion: v1
 kind: Service
