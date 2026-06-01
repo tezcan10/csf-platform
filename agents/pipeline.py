@@ -22,6 +22,7 @@ log = logging.getLogger("pipeline")
 
 LOG_DIR    = os.getenv("LOG_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs"))
 IN_CLUSTER = os.getenv("KUBERNETES_SERVICE_HOST") is not None   # true when running as a pod
+GHA_MODE   = os.getenv("GITHUB_ACTIONS") == "true"              # true when running in GitHub Actions
 
 def get_app_url():
     """Return APP_URL env var if set, otherwise look up the LoadBalancer IP from kubectl."""
@@ -84,9 +85,11 @@ def run_agent2(ctx):
     return result
 
 def ensure_gitops_checkout():
-    """When running in-cluster, clone/pull csf-gitops and return the k8s dir path."""
+    """Return the path to k8s manifests depending on execution environment."""
+    if GHA_MODE:
+        return os.getenv("K8S_DIR", "gitops/k8s")   # checked out by the workflow
     if not IN_CLUSTER:
-        return "infrastructure/csf/k8s"  # locally, manifests are on disk
+        return "infrastructure/csf/k8s"              # local dev, manifests on disk
     clone_dir = "/tmp/csf-gitops"
     token = os.getenv("GITHUB_TOKEN", "")
     repo_url = f"https://{token}@github.com/tezcan10/csf-gitops.git"
@@ -113,7 +116,55 @@ def run_agent4(ctx):
     write_log("agent4", result)
     return result
 
+def run_gha():
+    """GitHub Actions mode — Agent 1 is replaced by the GHA trigger itself."""
+    commit_sha = os.getenv("GITHUB_SHA", "")
+    commit_msg = os.getenv("GITHUB_COMMIT_MSG", "")
+    app_url    = get_app_url()
+
+    log.info("══════════════════════════════════════")
+    log.info("  CSF Pipeline  [GitHub Actions]")
+    log.info("══════════════════════════════════════")
+    log.info("▶  Triggered by push: %s  %s", commit_sha[:12], commit_msg[:60])
+
+    # Write a synthetic Agent 1 log so the dashboard shows the triggering commit
+    write_log("agent1", {
+        "agent": "agent1", "status": "change_detected",
+        "commit_sha": commit_sha, "commit_message": commit_msg,
+        "route_to": "agent3", "source": "github_actions",
+    })
+
+    ctx = {
+        "agent": "github_actions", "status": "change_detected",
+        "commit_sha": commit_sha, "commit_message": commit_msg,
+        "app_name": "csf-app", "app_url": app_url,
+    }
+
+    log.info("▶  Agent 3 — manifest validator")
+    r3 = run_agent3(ctx)
+    log.info("   status=%s  findings=%d", r3.get("status"), len(r3.get("findings", [])))
+    if r3.get("status") != "success":
+        log.error("   Validation FAILED — halting pipeline.")
+        sys.exit(1)
+
+    log.info("▶  Agent 4 — ArgoCD monitor")
+    r4 = run_agent4(r3)
+    log.info("   status=%s  pods=%s/%s  http=%s",
+             r4.get("status"), r4.get("ready_pods", "?"),
+             r4.get("total_pods", "?"), r4.get("health_check_ok"))
+
+    if r4.get("status") == "success":
+        log.info("══ Pipeline complete — deployment healthy ══")
+        sys.exit(0)
+    else:
+        log.error("══ Pipeline FAILED — %s ══", r4.get("message", ""))
+        sys.exit(1)
+
 def main():
+    if GHA_MODE:
+        run_gha()
+        return
+
     log.info("══════════════════════════════════════")
     log.info("  CSF Pipeline")
     log.info("══════════════════════════════════════")
