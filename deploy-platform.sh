@@ -1,18 +1,7 @@
 #!/usr/bin/env bash
-# deploy-platform.sh — build pipeline image, push to ACR, deploy all k8s manifests
+# deploy-platform.sh — deploy dashboard and supporting k8s resources
+# Pipeline now runs via GitHub Actions (csf-gitops/.github/workflows/deploy.yml)
 set -euo pipefail
-
-ACR="acrcsfdemo.azurecr.io"
-IMAGE="${ACR}/csf-pipeline:latest"
-
-echo "==> Logging into ACR..."
-az acr login --name acrcsfdemo
-
-echo "==> Building pipeline image..."
-docker build -f Dockerfile.pipeline -t "$IMAGE" .
-
-echo "==> Pushing pipeline image..."
-docker push "$IMAGE"
 
 echo "==> Applying namespace, PVC, RBAC..."
 kubectl apply -f k8s/namespace.yml
@@ -25,16 +14,7 @@ kubectl create configmap dashboard-html \
   --namespace csf-platform \
   --dry-run=client -o yaml | kubectl apply -f -
 
-echo "==> Checking for k8s/secret.yml..."
-if [ -f k8s/secret.yml ]; then
-  kubectl apply -f k8s/secret.yml
-else
-  echo "    WARNING: k8s/secret.yml not found — create it from k8s/secret.yml.example"
-  echo "    Pipeline CronJob will not start without secrets."
-fi
-
-echo "==> Deploying CronJob and dashboard..."
-kubectl apply -f k8s/pipeline-cronjob.yml
+echo "==> Deploying dashboard..."
 kubectl apply -f k8s/dashboard.yml
 
 echo ""
