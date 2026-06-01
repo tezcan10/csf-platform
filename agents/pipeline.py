@@ -40,6 +40,29 @@ def get_app_url():
 def write_log(name, data):
     os.makedirs(LOG_DIR, exist_ok=True)
     open(os.path.join(LOG_DIR, f"{name}_last.json"), "w").write(json.dumps(data, indent=2))
+    if not IN_CLUSTER:
+        _sync_log_to_pvc(name)
+
+def _sync_log_to_pvc(name):
+    """When running from laptop, kubectl cp the log file into the dashboard pod on the PVC."""
+    try:
+        pods = subprocess.run(
+            ["kubectl", "get", "pod", "-n", "csf-platform", "-l", "app=csf-dashboard",
+             "-o", "jsonpath={.items[0].metadata.name}"],
+            capture_output=True, text=True, timeout=10)
+        pod = pods.stdout.strip()
+        if not pod:
+            return
+        local_path = os.path.join(LOG_DIR, f"{name}_last.json")
+        remote_path = f"csf-platform/{pod}:/www/logs/{name}_last.json"
+        r = subprocess.run(["kubectl", "cp", local_path, remote_path],
+                           capture_output=True, text=True, timeout=15)
+        if r.returncode == 0:
+            log.info("   synced %s_last.json → dashboard PVC", name)
+        else:
+            log.warning("   PVC sync failed for %s: %s", name, r.stderr.strip()[:80])
+    except Exception as e:
+        log.warning("   PVC sync skipped (%s)", e)
 
 def run_agent1():
     last_sha = open(a1.STATE_FILE).read().strip() if os.path.exists(a1.STATE_FILE) else None
